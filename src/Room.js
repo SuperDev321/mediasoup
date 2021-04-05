@@ -22,7 +22,9 @@ module.exports = class Room {
         this.peers.forEach(peer => {
             peer.producers.forEach(producer => {
                 producerList.push({
-                    producer_id: producer.id
+                    producer_id: producer.id,
+                    producer_name: peer.name,
+                    room_id: this.id
                 })
             })
         })
@@ -84,11 +86,14 @@ module.exports = class Room {
     async produce(socket_id, producerTransportId, rtpParameters, kind) {
         // handle undefined errors
         return new Promise(async function (resolve, reject) {
-            let producer = await this.peers.get(socket_id).createProducer(producerTransportId, rtpParameters, kind)
+            let peer = await this.peers.get(socket_id);
+            let producer = await peer.createProducer(producerTransportId, rtpParameters, kind)
             resolve(producer.id)
             this.broadCast(socket_id, 'newProducers', [{
                 producer_id: producer.id,
-                producer_socket_id: socket_id
+                producer_socket_id: socket_id,
+                producer_name: peer.name,
+                room_id: this.id
             }])
         }.bind(this))
     }
@@ -110,7 +115,8 @@ module.exports = class Room {
             this.peers.get(socket_id).removeConsumer(consumer.id)
             // tell client consumer is dead
             this.io.to(socket_id).emit('consumerClosed', {
-                consumer_id: consumer.id
+                consumer_id: consumer.id,
+                room_id: this.id
             })
         }.bind(this))
 
@@ -131,6 +137,8 @@ module.exports = class Room {
         for (let otherID of Array.from(this.peers.keys()).filter(id => id !== socket_id)) {
             this.send(otherID, name, data)
         }
+        // let socket = this.io.get
+        // this.io.to(this.id).emit(name, data);
     }
 
     send(socket_id, name, data) {

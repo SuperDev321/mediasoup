@@ -46,7 +46,7 @@ module.exports = class Peer {
             consumer = await consumerTransport.consume({
                 producerId: producer_id,
                 rtpCapabilities,
-                paused: false //producer.kind === 'video',
+                paused: false, //producer.kind === 'video',
             });
         } catch (error) {
             console.error('consume failed', error);
@@ -74,6 +74,7 @@ module.exports = class Peer {
             params: {
                 producerId: producer_id,
                 id: consumer.id,
+                name: this.name,
                 kind: consumer.kind,
                 rtpParameters: consumer.rtpParameters,
                 type: consumer.type,

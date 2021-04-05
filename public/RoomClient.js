@@ -59,6 +59,7 @@ class RoomClient {
     ////////// INIT /////////
 
     async createRoom(room_id) {
+        console.log('create room', this.socket.request)
         await this.socket.request('createRoom', {
             room_id
         }).catch(err => {
@@ -73,11 +74,11 @@ class RoomClient {
             room_id
         }).then(async function (e) {
             console.log(e)
-            const data = await this.socket.request('getRouterRtpCapabilities');
+            const data = await this.socket.request('getRouterRtpCapabilities', this.room_id);
             let device = await this.loadDevice(data)
             this.device = device
             await this.initTransports(device)
-            this.socket.emit('getProducers')
+            this.socket.emit('getProducers', this.room_id)
         }.bind(this)).catch(e => {
             console.log(e)
         })
@@ -107,6 +108,7 @@ class RoomClient {
             const data = await this.socket.request('createWebRtcTransport', {
                 forceTcp: false,
                 rtpCapabilities: device.rtpCapabilities,
+                room_id: this.room_id
             })
             if (data.error) {
                 console.error(data.error);
@@ -120,7 +122,8 @@ class RoomClient {
             }, callback, errback) {
                 this.socket.request('connectTransport', {
                         dtlsParameters,
-                        transport_id: data.id
+                        transport_id: data.id,
+                        room_id: this.room_id
                     })
                     .then(callback)
                     .catch(errback)
@@ -131,12 +134,14 @@ class RoomClient {
                 rtpParameters
             }, callback, errback) {
                 try {
+                    console.log('producing', kind, rtpParameters);
                     const {
                         producer_id
                     } = await this.socket.request('produce', {
                         producerTransportId: this.producerTransport.id,
                         kind,
                         rtpParameters,
+                        room_id: this.room_id
                     });
                     callback({
                         id: producer_id
@@ -170,6 +175,7 @@ class RoomClient {
         {
             const data = await this.socket.request('createWebRtcTransport', {
                 forceTcp: false,
+                room_id: this.room_id
             });
             if (data.error) {
                 console.error(data.error);
@@ -183,7 +189,8 @@ class RoomClient {
             }, callback, errback) {
                 this.socket.request('connectTransport', {
                         transport_id: this.consumerTransport.id,
-                        dtlsParameters
+                        dtlsParameters,
+                        room_id: this.room_id
                     })
                     .then(callback)
                     .catch(errback);
@@ -234,7 +241,7 @@ class RoomClient {
             }
         }.bind(this))
 
-        this.socket.on('disconnect', function () {
+        this.socket.on('disconnect' ,function () {
             this.exit(true)
         }.bind(this))
 
@@ -444,7 +451,8 @@ class RoomClient {
         const data = await this.socket.request('consume', {
             rtpCapabilities,
             consumerTransportId: this.consumerTransport.id, // might be 
-            producerId
+            producerId,
+            room_id: this.room_id
         });
         const {
             id,
@@ -477,7 +485,8 @@ class RoomClient {
         let producer_id = this.producerLabel.get(type)
         console.log(producer_id)
         this.socket.emit('producerClosed', {
-            producer_id
+            producer_id,
+            room_id: this.room_id
         })
         this.producers.get(producer_id).close()
         this.producers.delete(producer_id)
@@ -550,7 +559,7 @@ class RoomClient {
         }.bind(this)
 
         if (!offline) {
-            this.socket.request('exitRoom').then(e => console.log(e)).catch(e => console.warn(e)).finally(function () {
+            this.socket.request('exitRoom', this.room_id).then(e => console.log(e)).catch(e => console.warn(e)).finally(function () {
                 clean()
             }.bind(this))
         } else {
@@ -564,7 +573,7 @@ class RoomClient {
     ///////  HELPERS //////////
 
     async roomInfo() {
-        let info = await socket.request('getMyRoomInfo')
+        let info = await socket.request('getMyRoomInfo', this.room_id)
         return info
     }
 
