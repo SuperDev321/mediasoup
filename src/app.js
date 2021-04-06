@@ -198,7 +198,6 @@ io.on('connection', socket => {
     }, callback) => {
         //TODO null handling
         let params = await roomList.get(room_id).consume(socket.id, consumerTransportId, producerId, rtpCapabilities)
-        
         console.log(`---consuming--- name: ${roomList.get(room_id) && roomList.get(room_id).getPeers().get(socket.id).name} prod_id:${producerId} consumer_id:${params.id}`)
         callback(params)
     })
@@ -231,6 +230,12 @@ io.on('connection', socket => {
     }) => {
         console.log(`---producer close--- name: ${roomList.get(room_id) && roomList.get(room_id).getPeers().get(socket.id).name}`)
         roomList.get(room_id).closeProducer(socket.id, producer_id)
+    })
+
+    socket.on('roomProducersClosed', ({
+        room_id
+    }) => {
+        roomList.get(room_id).closeAllProducers(socket.id);
     })
 
     socket.on('exitRoom', async (room_id, callback) => {

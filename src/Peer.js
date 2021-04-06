@@ -32,7 +32,6 @@ module.exports = class Peer {
             console.log(`---producer transport close--- name: ${this.name} consumer_id: ${producer.id}`)
             producer.close()
             this.producers.delete(producer.id)
-            
         }.bind(this))
 
         return producer
@@ -93,6 +92,19 @@ module.exports = class Peer {
         
         this.producers.delete(producer_id)
     }
+
+    closeAllProducers() {
+        console.log('all remove')
+        try {
+            this.producers.forEach((producer, key, map) => {
+                producer.close();
+            })
+        } catch(e) {
+            console.warn(e)
+        }
+        this.producers.clear();
+    }
+
 
     getProducer(producer_id) {
         return this.producers.get(producer_id)

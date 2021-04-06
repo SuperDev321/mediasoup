@@ -133,6 +133,10 @@ module.exports = class Room {
         this.peers.get(socket_id).closeProducer(producer_id)
     }
 
+    closeAllProducers(socket_id) {
+        this.peers.get(socket_id).closeAllProducers();
+    }
+
     broadCast(socket_id, name, data) {
         for (let otherID of Array.from(this.peers.keys()).filter(id => id !== socket_id)) {
             this.send(otherID, name, data)
