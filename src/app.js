@@ -258,6 +258,31 @@ io.on('connection', socket => {
 
         callback('successfully exited room')
     })
+
+    socket.on('exit', async (_, callback) => {
+        // if (!roomList.has(room_id)) {
+        //     callback({
+        //         error: 'not currently in a room'
+        //     })
+        //     return
+        // }
+        // close transports
+        let rooms = socket.rooms;
+        if(rooms && rooms.length) {
+            rooms.forEach(async (room_id) => {
+                if(roomList.has(room_id)) {
+                    await roomList.get(room_id).removePeer(socket.id)
+                    if (roomList.get(room_id).getPeers().size === 0) {
+                        roomList.delete(room_id)
+                    }
+                    // socket.room_id = null
+                    socket.leave(room_id);
+                }
+            })
+            
+        }
+        callback('successfully exited room')
+    })
 })
 
 function room() {

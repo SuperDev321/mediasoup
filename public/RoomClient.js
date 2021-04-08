@@ -59,7 +59,6 @@ class RoomClient {
     ////////// INIT /////////
 
     async createRoom(room_id) {
-        console.log('create room', this.socket.request)
         await this.socket.request('createRoom', {
             room_id
         }).catch(err => {

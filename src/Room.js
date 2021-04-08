@@ -107,7 +107,7 @@ module.exports = class Room {
             console.error('can not consume');
             return;
         }
-
+        console.log('--consume--', consumer_transport_id);
         let {consumer, params} = await this.peers.get(socket_id).createConsumer(consumer_transport_id, producer_id, rtpCapabilities)
         
         consumer.on('producerclose', function(){

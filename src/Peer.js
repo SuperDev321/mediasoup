@@ -39,7 +39,6 @@ module.exports = class Peer {
 
     async createConsumer(consumer_transport_id, producer_id, rtpCapabilities) {
         let consumerTransport = this.transports.get(consumer_transport_id)
-        console.log('create consumer', producer_id);
         let consumer = null
         try {
             consumer = await consumerTransport.consume({
@@ -48,7 +47,7 @@ module.exports = class Peer {
                 paused: false, //producer.kind === 'video',
             });
         } catch (error) {
-            console.error('consume failed', error, this.transports, consumer_transport_id);
+            console.error('consume failed', consumer_transport_id);
             return;
         }
 
