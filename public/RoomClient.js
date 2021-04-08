@@ -187,6 +187,7 @@ class RoomClient {
             this.consumerTransport.on('connect', function ({
                 dtlsParameters
             }, callback, errback) {
+                console.log('transport connect');
                 this.socket.request('connectTransport', {
                         transport_id: this.consumerTransport.id,
                         dtlsParameters,
@@ -202,6 +203,7 @@ class RoomClient {
                         break;
 
                     case 'connected':
+                        console.log('consumer connecteed', this.room_id)
                         //remoteVideo.srcObject = await stream;
                         //await socket.request('resume');
                         break;
@@ -548,7 +550,6 @@ class RoomClient {
     }
 
     exit(offline = false) {
-
         let clean = function () {
             this._isOpen = false
             this.consumerTransport.close()
@@ -565,9 +566,7 @@ class RoomClient {
         } else {
             clean()
         }
-
         this.event(_EVENTS.exitRoom)
-
     }
 
     ///////  HELPERS //////////
