@@ -24,7 +24,8 @@ module.exports = class Room {
                 producerList.push({
                     producer_id: producer.id,
                     producer_name: peer.name,
-                    room_id: this.id
+                    room_id: this.id,
+                    locked: peer.locked
                 })
             })
         })
@@ -83,17 +84,18 @@ module.exports = class Room {
 
     }
 
-    async produce(socket_id, producerTransportId, rtpParameters, kind) {
+    async produce(socket_id, producerTransportId, rtpParameters, kind, name, locked) {
         // handle undefined errors
         return new Promise(async function (resolve, reject) {
             let peer = await this.peers.get(socket_id);
-            let producer = await peer.createProducer(producerTransportId, rtpParameters, kind)
+            let producer = await peer.createProducer(producerTransportId, rtpParameters, kind, locked)
             resolve(producer.id)
             this.broadCast(socket_id, 'newProducers', [{
                 producer_id: producer.id,
                 producer_socket_id: socket_id,
                 producer_name: peer.name,
-                room_id: this.id
+                room_id: this.id,
+                locked
             }])
         }.bind(this))
     }

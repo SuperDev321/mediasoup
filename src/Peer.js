@@ -2,6 +2,7 @@ module.exports = class Peer {
     constructor(socket_id, name) {
         this.id = socket_id
         this.name = name
+        this.locked = false;
         this.transports = new Map()
         this.consumers = new Map()
         this.producers = new Map()
@@ -19,11 +20,15 @@ module.exports = class Peer {
         });
     }
 
-    async createProducer(producerTransportId, rtpParameters, kind) {
+    async createProducer(producerTransportId, rtpParameters, kind, locked = false) {
         //TODO handle null errors
+        this.locked = locked;
         let producer = await this.transports.get(producerTransportId).produce({
             kind,
-            rtpParameters
+            rtpParameters,
+            appData: {
+                locked
+            }
         })
 
         this.producers.set(producer.id, producer)

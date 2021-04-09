@@ -176,14 +176,15 @@ io.on('connection', socket => {
         rtpParameters,
         producerTransportId,
         room_id,
-        name
+        name,
+        locked
     }, callback) => {
         
         if(!roomList.has(room_id)) {
             return callback({error: 'not is a room'+room_id})
         }
 
-        let producer_id = await roomList.get(room_id).produce(socket.id, producerTransportId, rtpParameters, kind, name)
+        let producer_id = await roomList.get(room_id).produce(socket.id, producerTransportId, rtpParameters, kind, name, locked)
         console.log(`---produce--- type: ${kind} name: ${roomList.get(room_id).getPeers().get(socket.id).name} id: ${producer_id}`)
         callback({
             producer_id
