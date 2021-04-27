@@ -10,8 +10,8 @@ const Room = require('./Room')
 const Peer = require('./Peer')
 
 const options = {
-    key: fs.readFileSync(path.join(__dirname,config.sslKey), 'utf-8'),
-    cert: fs.readFileSync(path.join(__dirname,config.sslCrt), 'utf-8')
+    key: fs.readFileSync(path.join(__dirname, config.sslKey), 'utf-8'),
+    cert: fs.readFileSync(path.join(__dirname, config.sslCrt), 'utf-8')
 }
 
 const httpsServer = https.createServer(options, app)
@@ -90,7 +90,7 @@ async function createWorkers() {
 
 
 io.on('connection', socket => {
-    socket.on('createRoom', async ({
+    socket.on('createMediaRoom', async ({
         room_id
     }, callback) => {
         console.log('create room');
@@ -104,22 +104,25 @@ io.on('connection', socket => {
         }
     })
 
-    socket.on('join', ({
+    socket.on('hey', ({hey}) => {
+        console.log('hey')
+    })
+
+    socket.on('joinMedia', ({
         room_id,
         name
     }, cb) => {
 
-        console.log('---user joined--- \"' + room_id + '\": ' + name)
+        console.log('---user joined--- \"' + room_id + '\": ' + name + socket.id)
         if (!roomList.has(room_id)) {
             return cb({
                 error: 'room does not exist'
             })
         }
-        roomList.get(room_id).addPeer(new Peer(socket.id, name))
-        // socket.room_id = room_id
-        socket.join(room_id);
-
-        cb(roomList.get(room_id).toJson())
+        roomList.get(room_id).addPeer(new Peer(socket.id, name, room_id, io))
+    
+        // cb(roomList.get(room_id).toJson())
+        cb(true);
     })
 
     socket.on('getProducers', (room_id) => {
@@ -183,7 +186,7 @@ io.on('connection', socket => {
         if(!roomList.has(room_id)) {
             return callback({error: 'not is a room'+room_id})
         }
-
+    
         let producer_id = await roomList.get(room_id).produce(socket.id, producerTransportId, rtpParameters, kind, name, locked)
         console.log(`---produce--- type: ${kind} name: ${roomList.get(room_id).getPeers().get(socket.id).name} id: ${producer_id}`)
         callback({
@@ -198,9 +201,14 @@ io.on('connection', socket => {
         room_id
     }, callback) => {
         //TODO null handling
-        let params = await roomList.get(room_id).consume(socket.id, consumerTransportId, producerId, rtpCapabilities)
-        console.log(`---consuming--- name: ${roomList.get(room_id) && roomList.get(room_id).getPeers().get(socket.id).name} prod_id:${producerId} consumer_id:${params.id}`)
-        callback(params)
+        let room = roomList.get(room_id);
+        if(room) {
+            let params = await roomList.get(room_id).consume(socket.id, consumerTransportId, producerId, rtpCapabilities)
+            console.log(`---consuming--- name: ${roomList.get(room_id) && roomList.get(room_id).getPeers().get(socket.id).name} prod_id:${producerId} consumer_id:${params.id}`)
+            callback(params)
+        } else {
+            callback(false);
+        }
     })
 
     socket.on('resume', async (data, callback) => {
@@ -214,6 +222,7 @@ io.on('connection', socket => {
     })
 
     socket.on('disconnect', () => {
+        console.log('disconnect');
         // console.log(`---disconnect--- name: ${roomList.get(room_id) && roomList.get(room_id).getPeers().get(socket.id).name}`)
         // // if (!socket.room_id) return
         let room_ids = Array.isArray(socket.rooms) ? socket.rooms : [];
@@ -236,7 +245,8 @@ io.on('connection', socket => {
     socket.on('roomProducersClosed', ({
         room_id
     }) => {
-        roomList.get(room_id).closeAllProducers(socket.id);
+        if(roomList.has(room_id))
+            roomList.get(room_id).closeAllProducers(socket.id);
     })
 
     socket.on('exitRoom', async (room_id, callback) => {
@@ -259,6 +269,76 @@ io.on('connection', socket => {
 
         callback('successfully exited room')
     })
+
+    socket.on('start view', async ({
+        room_id, name, socket_id
+    }) => {
+        console.log('start view', socket_id, socket.id, name)
+        socket.to(socket_id).emit('start view', {
+            room_id,
+            name
+        });
+    });
+    socket.on('stop view', async ({
+        room_id, name, socket_id
+    }) => {
+        
+        socket.to(socket_id).emit('stop view', {
+            room_id,
+            name
+        })
+    });
+    socket.on('view request', async ({
+        roomName, username, targetId, socket_id
+    }, callback) => {
+        let room = roomList.get(roomName);
+        if(!room) {
+            return callback(false, 'no media room');
+        }
+    
+        let peer = room.peers.get(socket_id);
+        if(!peer) {
+            return callback(false, 'no peer');
+        }
+        if(peer.checkBlock(username)) {
+            return callback(false, 'blocked')
+        }
+
+        let targetSocket = io.of('/').sockets.get(socket_id);
+    
+        targetSocket.emit('view request', {
+            roomName,
+            username,
+            socket_id
+        }, (result) => {
+            if(!result) {
+                peer.addBlock(username);
+            } else {
+                peer.addAllow(username);
+            }
+            callback(result);
+        });
+    });
+    socket.on('stop broadcast', ({
+        room_id, name, targetName
+    }, callback) => {
+        let room = roomList.get(room_id);
+        if(!room) {
+            return callback(false, 'no media room');
+        }
+    
+        let peers = Array.from(room.peers.values());
+        let peer = peers.find((peer) => {
+            if(peer.name === targetName) {
+                return true;
+            }
+        })
+        let socket_id = peer.id;
+        socket.to(socket_id).emit('stop broadcast', {
+            room_id,
+            name
+        })
+    });
 
     socket.on('exit', async (_, callback) => {
         // if (!roomList.has(room_id)) {
