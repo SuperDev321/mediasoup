@@ -8,7 +8,7 @@ const config = require('./config')
 const path = require('path')
 const Room = require('./Room')
 const Peer = require('./Peer')
-
+const cors = require('cors');
 const options = {
     key: fs.readFileSync(path.join(__dirname, config.sslKey), 'utf-8'),
     cert: fs.readFileSync(path.join(__dirname, config.sslCrt), 'utf-8')
@@ -22,7 +22,7 @@ const io = require('socket.io')(httpsServer,{
 })
 
 app.use(express.static(path.join(__dirname, '..', 'public')))
-
+app.use(cors());
 httpsServer.listen(config.listenPort, () => {
     console.log('listening https ' + config.listenPort)
 })
@@ -120,7 +120,7 @@ io.on('connection', socket => {
             })
         }
         roomList.get(room_id).addPeer(new Peer(socket.id, name, room_id, io))
-    
+        socket.join(room_id);
         // cb(roomList.get(room_id).toJson())
         cb(true);
     })
@@ -212,7 +212,6 @@ io.on('connection', socket => {
     })
 
     socket.on('resume', async (data, callback) => {
-
         await consumer.resume();
         callback();
     });
@@ -221,12 +220,8 @@ io.on('connection', socket => {
         cb(roomList.get(room_id).toJson())
     })
 
-    socket.on('disconnect', () => {
-        console.log('disconnect');
-        // console.log(`---disconnect--- name: ${roomList.get(room_id) && roomList.get(room_id).getPeers().get(socket.id).name}`)
-        // // if (!socket.room_id) return
-        let room_ids = Array.isArray(socket.rooms) ? socket.rooms : [];
-        room_ids.map((room_id) => {
+    socket.on('disconnecting', () => {
+        socket.rooms.forEach((room_id) => {
             let room = roomList.get(room_id)
             if(room) {
                 room.removePeer(socket.id);

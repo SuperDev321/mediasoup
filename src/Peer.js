@@ -106,7 +106,6 @@ module.exports = class Peer {
     }
 
     closeAllProducers() {
-        console.log('all remove')
         try {
             this.producers.forEach((producer, key, map) => {
                 producer.close();

@@ -59,7 +59,7 @@ class RoomClient {
     ////////// INIT /////////
 
     async createRoom(room_id) {
-        await this.socket.request('createRoom', {
+        await this.socket.request('createMediaRoom', {
             room_id
         }).catch(err => {
             console.log(err)
@@ -68,7 +68,7 @@ class RoomClient {
 
     async join(name, room_id) {
 
-        socket.request('join', {
+        socket.request('joinMedia', {
             name,
             room_id
         }).then(async function (e) {
