@@ -122,7 +122,9 @@ module.exports = class Peer {
     }
 
     close() {
-        this.transports.forEach(transport => transport.close())
+        this.transports.forEach(transport => transport.close());
+        this.producers.clear();
+        this.consumers.clear();
         this.blocks.clear();
         this.allows.clear();
     }

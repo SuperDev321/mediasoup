@@ -112,23 +112,26 @@ module.exports = class Room {
             return;
         }
         console.log('--consume--', consumer_transport_id);
-        let {consumer, params} = await this.peers.get(socket_id).createConsumer(consumer_transport_id, producer_id, rtpCapabilities)
-        consumer.on('transportclose',async function() {
-            console.log(`---consumer transport close--- name: ${this.name} consumer_id: ${consumer.id}`)
-            // this.consumers.delete(consumer.id)
-            await this.closeConsumer(socket_id, consumer.id);
-        }.bind(this))
-        consumer.on('producerclose', function(){
-            console.log(`---consumer closed--- due to producerclose event  name:${this.peers.get(socket_id).name} consumer_id: ${consumer.id}`)
-            this.peers.get(socket_id).removeConsumer(consumer.id)
-            // tell client consumer is dead
-            this.io.to(socket_id).emit('consumerClosed', {
-                consumer_id: consumer.id,
-                room_id: this.id
-            })
-        }.bind(this))
-
-        return params
+        let peer = this.peers.get(socket_id);
+        if(peer) {
+            let {consumer, params} = await this.peers.get(socket_id).createConsumer(consumer_transport_id, producer_id, rtpCapabilities)
+            consumer.on('transportclose',async function() {
+                console.log(`---consumer transport close--- name: ${this.name} consumer_id: ${consumer.id}`)
+                // this.consumers.delete(consumer.id)
+                await this.closeConsumer(socket_id, consumer.id);
+            }.bind(this))
+            consumer.on('producerclose', function(){
+                console.log(`---consumer closed--- due to producerclose event  name:${this.peers.get(socket_id).name} consumer_id: ${consumer.id}`)
+                this.peers.get(socket_id).removeConsumer(consumer.id)
+                // tell client consumer is dead
+                this.io.to(socket_id).emit('consumerClosed', {
+                    consumer_id: consumer.id,
+                    room_id: this.id
+                })
+            }.bind(this))
+            return params
+        }
+        return null;
 
     }
 
@@ -190,5 +193,16 @@ module.exports = class Room {
         }
     }
 
-
+    getPeerByName(name) {
+        let id = null
+        for (let [key, peer] of this.peers.entries()) {
+            if (peer.name === name)
+                id = key;
+        }
+        if (id) {
+            return this.peers.get(id);
+        } else {
+            return null;
+        }
+    }
 }

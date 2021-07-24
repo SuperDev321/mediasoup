@@ -16,8 +16,16 @@ const options = {
 
 const httpsServer = https.createServer(options, app)
 const io = require('socket.io')(httpsServer,{
+    pingInterval: 60000,
+    pingTimeout: 60000,
+    upgradeTimeout: 30000,
+    agent: false,
+    reconnectionDelay: 1000,
+    reconnectDelayMax: 5000,
     cors: {
-      origin: '*',
+        origin: "https://192.168.30.128:3000",
+        allowedHeaders: ["my-custom-header"],
+        credentials: true,
     }
 })
 
@@ -58,7 +66,7 @@ let roomList = new Map()
     await createWorkers()
 })()
 
-
+console.log(config.mediasoup.numWorkers)
 
 async function createWorkers() {
     let {
@@ -88,12 +96,24 @@ async function createWorkers() {
     }
 }
 
+const createMediaRoom = async (room_id) => {
+    if (roomList.has(room_id)) {
+        return false;
+    } else {
+        let worker = await getMediasoupWorker()
+        roomList.set(room_id, new Room(room_id, worker, io))
+        return true;
+    }
+}
 
 io.on('connection', socket => {
     socket.on('createMediaRoom', async ({
-        room_id
+        room_id,
+        token
     }, callback) => {
-        console.log('create room');
+        if(token !== config.token) {
+            return;
+        }
         if (roomList.has(room_id)) {
             callback('already exists')
         } else {
@@ -108,12 +128,15 @@ io.on('connection', socket => {
         console.log('hey')
     })
 
-    socket.on('joinMedia', ({
+    socket.on('joinMedia', async ({
         room_id,
-        name
+        name,
+        token
     }, cb) => {
-
-        console.log('---user joined--- \"' + room_id + '\": ' + name + socket.id)
+        if(token !== config.token) {
+            return cb(false);
+        } 
+        await createMediaRoom();
         if (!roomList.has(room_id)) {
             return cb({
                 error: 'room does not exist'
@@ -266,45 +289,58 @@ io.on('connection', socket => {
     })
 
     socket.on('start view', async ({
-        room_id, name, socket_id
+        room_id, name, targetName
     }) => {
-        console.log('start view', socket_id, socket.id, name)
-        socket.to(socket_id).emit('start view', {
-            room_id,
-            name
-        });
+        let room = roomList.get(room_id);
+        if(!room) {
+            return callback(false, 'no media room');
+        }
+        const peer = room.getPeerByName(targetName);
+        if (peer) {
+            const socket_id = peer.id;
+            socket.to(socket_id).emit('start view', {
+                room_id,
+                name
+            });
+        }
     });
     socket.on('stop view', async ({
-        room_id, name, socket_id
+        room_id, name, targetName
     }) => {
-        
-        socket.to(socket_id).emit('stop view', {
-            room_id,
-            name
-        })
+        let room = roomList.get(room_id);
+        if(!room) {
+            return callback(false, 'no media room');
+        }
+        const peer = room.getPeerByName(targetName);
+        if (peer) {
+            socket.to(peer.id).emit('stop view', {
+                room_id,
+                name
+            })
+        }
     });
     socket.on('view request', async ({
-        roomName, username, targetId, socket_id
+        roomName, username, targetId, targetName
     }, callback) => {
         let room = roomList.get(roomName);
         if(!room) {
             return callback(false, 'no media room');
         }
-    
-        let peer = room.peers.get(socket_id);
+        console.log('target name', targetName)
+        const peer = room.getPeerByName(targetName);
         if(!peer) {
             return callback(false, 'no peer');
         }
         if(peer.checkBlock(username)) {
+            console.log('check block')
             return callback(false, 'blocked')
         }
 
-        let targetSocket = io.of('/').sockets.get(socket_id);
+        let targetSocket = io.of('/').sockets.get(peer.id);
     
         targetSocket.emit('view request', {
             roomName,
             username,
-            socket_id
         }, (result) => {
             if(!result) {
                 peer.addBlock(username);
