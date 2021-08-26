@@ -1,6 +1,6 @@
-const config = require('./config')
+const config = require('./config');
 module.exports = class Room {
-    constructor(room_id, worker, io) {
+    constructor(room_id, worker, io = null) {
         this.id = room_id
         const mediaCodecs = config.mediasoup.router.mediaCodecs
         worker.createRouter({
@@ -38,7 +38,7 @@ module.exports = class Room {
         return this.router.rtpCapabilities
     }
 
-    async createWebRtcTransport(socket_id) {
+    async createWebRtcTransport(peer_id) {
         const {
             maxIncomingBitrate,
             initialAvailableOutgoingBitrate
@@ -60,16 +60,16 @@ module.exports = class Room {
         transport.on('dtlsstatechange', function(dtlsState) {
 
             if (dtlsState === 'closed') {
-                console.log('---transport close dtls--- ' + this.peers.get(socket_id).name + ' closed')
+                console.log('---transport close dtls--- ' + this.peers.get(peer_id).name + ' closed')
                 transport.close()
             }
         }.bind(this))
 
         transport.on('close', () => {
-            console.log('---transport close--- ' + this.peers.get(socket_id).name + ' closed')
+            console.log('---transport close--- ' + this.peers.get(peer_id).name + ' closed')
         })
         console.log('---adding transport---', transport.id)
-        this.peers.get(socket_id).addTransport(transport)
+        this.peers.get(peer_id).addTransport(transport)
         return {
             params: {
                 id: transport.id,
@@ -92,13 +92,13 @@ module.exports = class Room {
             let peer = await this.peers.get(socket_id);
             let producer = await peer.createProducer(producerTransportId, rtpParameters, kind, locked)
             resolve(producer.id)
-            this.broadCast(socket_id, 'newProducers', [{
-                producer_id: producer.id,
-                producer_socket_id: socket_id,
-                producer_name: peer.name,
-                room_id: this.id,
-                locked
-            }])
+            // this.broadCast(socket_id, 'newProducers', [{
+            //     producer_id: producer.id,
+            //     producer_socket_id: socket_id,
+            //     producer_name: peer.name,
+            //     room_id: this.id,
+            //     locked
+            // }])
         }.bind(this))
     }
 
@@ -124,11 +124,17 @@ module.exports = class Room {
                 console.log(`---consumer closed--- due to producerclose event  name:${this.peers.get(socket_id).name} consumer_id: ${consumer.id}`)
                 this.peers.get(socket_id).removeConsumer(consumer.id)
                 // tell client consumer is dead
-                this.io.to(socket_id).emit('consumerClosed', {
-                    consumer_id: consumer.id,
-                    room_id: this.id
-                })
+                // this.io.to(socket_id)
+                try {
+                    socket.emit('consumerClosed', {
+                        consumer_id: consumer.id,
+                        room_id: this.id
+                    })
+                } catch (err) {
+                    console.log(err.message)
+                }
             }.bind(this))
+            
             return params
         }
         return null;
@@ -141,7 +147,16 @@ module.exports = class Room {
     }
 
     closeProducer(socket_id, producer_id) {
+        if (this.peers.has(socket_id))
         this.peers.get(socket_id).closeProducer(producer_id)
+    }
+
+    pauseProducer(socket_id, producer_id) {
+        this.peers.get(socket_id).pauseProducer(producer_id);
+    }
+
+    resumeProducer(socket_id, producer_id) {
+        this.peers.get(socket_id).resumeProducer(producer_id);
     }
 
     async closeConsumer(socket_id, consumer_id) {

@@ -55,8 +55,9 @@ module.exports = class Peer {
                 rtpCapabilities,
                 paused: false, //producer.kind === 'video',
             });
+            console.log(consumer)
         } catch (error) {
-            console.error('consume failed', consumer_transport_id);
+            console.error('consume failed', consumer_transport_id, error.message);
             return;
         }
 
